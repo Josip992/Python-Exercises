@@ -1,86 +1,22 @@
 #!python.exe
 
-import mysql.connector # "C:\ProgramData\Anaconda3\python.exe" -m pip install mysql-connector 
-import json
-import os
-from http import cookies
-import cgi
-import hashlib
-
-db_conf = {
-    "host":"localhost",
-    "db_name": "obrana",
-    "user":"root",
-    "passwd":""
-}
-
-def get_DB_connection():
-    mydb = mysql.connector.connect(
-        host=db_conf["host"],
-        user=db_conf["user"],
-        passwd=db_conf["passwd"],
-        database=db_conf["db_name"]
-    )
-    return mydb
+import os, cgi
+import base, authenticate
 
 params = cgi.FieldStorage()
 
-def hash_password(password):
-    password_bin = password.encode('utf-8')
-    salt = os.urandom(32)
-    hash = hashlib.pbkdf2_hmac(
-        'sha256', password_bin, salt, 100000
-    )
-    return salt + hash
-
-def create_user(email, password) :
-    query = "INSERT INTO sessions (email, password) VALUES (%s, %s)"
-    password1 = hash_password(password)
-    values = (email, password1)
-    mydb = get_DB_connection()
-    cursor = mydb.cursor()
-    try:
-        cursor.execute(query, values)
-        mydb.commit()
-    except:
-        return None
-    
-def get_user(email):
-    mydb = get_DB_connection()
-    cursor = mydb.cursor()
-    cursor.execute("SELECT * FROM sessions WHERE email='" + str(email) + "'")
-    myresult = cursor.fetchone()
-    return myresult
+if os.environ['REQUEST_METHOD'].upper() == "POST":
+    username = params.getvalue('username')
+    password = params.getvalue('password')
+    success = authenticate.register(username, password)
+    if success:
+        print('Location:login.py')
 
 
-if os.environ["REQUEST_METHOD"].upper() == "POST":
-    user = get_user(params.getvalue("email"))
-    if user is None:
-        create_user(params.getvalue("email"), params.getvalue("password"))
-        cookie = cookies.SimpleCookie()
-        cookie['email'] = params.getvalue("email")
-        print(cookie.output())
-        
-print('''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body>
-<form action="" method="post">
-  <label for="email">Email:</label>
-  <input type="email" name="email" id="email"><br>
-
-  <label for="password">Password:</label>
-  <input type="password" name="password" id="password"><br>
-
-  <input type="submit">
+base.start_html()
+print('''<form method="POST">
+username <input type="text" name="username" />
+password <input type="password" name="password"/>
+<input type="submit" value="Register"/>
 </form>''')
-if user is not None:
-    print("User postoji")
-
-print('''</body>
-</html>''')
+base.finish_html()
